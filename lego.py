@@ -42,10 +42,17 @@ with Image.open("cat_small.jpeg").convert('RGB') as im:
     print(width,height)
 
     ### XXX: Make sure I access this in the correct way that does not crash the cache.
-    for y in range(0,height):
-        print(y)
-        for x in range(0,width):
-            val = quantize(pix[x,y])
-            pix[x,y] = val
+    prev_val = None
+    prev_res = None
+
+    for x in range(0,width):
+        for y in range(0,height):
+            in_val = pix[x,y]
+            if not prev_val or not (in_val == prev_val):
+                prev_res = quantize(in_val)
+                prev_val = in_val
+                pix[x,y] = prev_res
+            else:
+                pix[x,y] = prev_res
 
     im.save('converted.jpeg')
