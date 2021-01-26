@@ -1,1 +1,4 @@
-.jpeg
+*.jpeg
+*.git
+*.svg
+*.webp
