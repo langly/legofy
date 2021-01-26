@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import colors
+import numpy as np
 
 from PIL import Image
 import math
@@ -18,41 +19,90 @@ def calc3D_dist(c, o):
 def quantize(col):
     min_distance = 1000
     min_color = None
+    min_idx = None
 
-    for c in colors.colors:
+    for (i,c) in enumerate(colors.colors):
         val = colors.colors[c]
         d = calc3D_dist(col,val)
 
         if ( d < min_distance ):
-            min_distance = d
-            min_color = c
+            min_distance    = d
+            min_color       = c
+            min_idx         = i
 
-    return colors.colors[min_color]
+    return (colors.colors[min_color],min_idx)
 
-with Image.open("cat_small.jpeg").convert('RGB') as im:
-    orignal_size = im.size
-    new_size = list(map(lambda x: int(x * scale), orignal_size))
-    im.resize(new_size)
+def get_palette():
+    p = []
+    for v in colors.colors.values():
+        p.append(v)
+    return p
 
-    pix = im.load()
+def generate_svg(image):
+    import svgwrite
+    from svgwrite import cm,mm
 
-    print(orignal_size)
+    height = len(image)
+    width  = len(image[0])
 
-    (width,height) = orignal_size
-    print(width,height)
+    box_side = 8
+    hPx = height * box_side
+    wPx = width * box_side
 
-    ### XXX: Make sure I access this in the correct way that does not crash the cache.
-    prev_val = None
-    prev_res = None
+    palette = get_palette()
 
-    for x in range(0,width):
+    print(height,width)
+
+    dwg = svgwrite.Drawing('test.svg', (hPx,wPx),viewBox=('0 0 ' + str(hPx) + " " +str(wPx)), debug=True, profile='full')
+
+    for y in range(height):
+        dy = y * box_side + ( box_side / 2 )
+        for x in range(width):
+            dx = x * box_side + ( box_side / 2 )
+            ## double check x/y coords here
+            idx = image[y][x]
+            col = palette[idx]
+            dwg.add ( dwg.circle( center = (dx,dy), r = box_side/2, fill=svgwrite.rgb(col[0], col[1], col[2])) )
+
+    dwg.save()
+
+def quantize_image(filename):
+    with Image.open("cat_small.jpeg").convert('RGB') as im:
+        orignal_size = im.size
+        new_size = list(map(lambda x: int(x * scale), orignal_size))
+        im.resize(new_size)
+
+        pix = im.load()
+
+        print(orignal_size)
+
+        (width,height) = orignal_size
+        print(width,height)
+
+        ### XXX: Make sure I access this in the correct way that does not crash the cache.
+        prev_val = None
+        prev_res = None
+
+        image = []
+
         for y in range(0,height):
-            in_val = pix[x,y]
-            if not prev_val or not (in_val == prev_val):
-                prev_res = quantize(in_val)
-                prev_val = in_val
-                pix[x,y] = prev_res
-            else:
-                pix[x,y] = prev_res
+            row = []
+            for x in range(0,width):
+                in_val = pix[x,y]
+                if not prev_val or not (in_val == prev_val):
+                    (prev_res,prev_idx) = quantize(in_val)
+                    prev_val = in_val
+                    pix[x,y] = prev_res
+                else:
+                    pix[x,y] = prev_res
 
-    im.save('converted.jpeg')
+                row.append(prev_idx)
+
+            image.append(row)
+            row = []
+
+        im.save('converted.jpeg')
+        return image
+
+image = quantize_image('cat_small.jpeg')
+generate_svg(image)
